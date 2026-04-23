@@ -1,0 +1,31 @@
+# core ML
+torch
+torchvision
+torchaudio
+scikit-learn
+pandas
+numpy
+matplotlib
+jupyter
+
+# mlops
+mlflow
+evidently
+apache-airflow==2.9.3
+dvc[s3]
+
+# llm / agents
+langchain
+langchain-ollama
+langgraph
+
+# serving
+fastapi
+uvicorn
+httpx
+pydantic
+python-dotenv
+
+# testing
+pytest
+ruff
