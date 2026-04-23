@@ -18,6 +18,7 @@ def train(n_estimators=100, max_depth=5):
     # load data
     data = load_wine()
     X = pd.DataFrame(data.data, columns=data.feature_names)
+    X.columns = X.columns.str.replace("/", "_").str.replace(" ", "_")
     y = data.target
 
     X = X + np.random.normal(0, 1.5, X.shape)
