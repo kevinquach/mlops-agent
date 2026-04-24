@@ -1,15 +1,19 @@
 from datetime import timedelta
+from pathlib import Path
 
-from feast import Entity, FeatureView, Field, FileSource
+from feast import Entity, FeatureView, Field, FileSource, ValueType
 from feast.types import Float32, Int64
+
+DATA_PATH = str(Path(__file__).parent / "data" / "wine_features.parquet")
 
 wine = Entity(
     name="wine_id",
-    description="Unique identifier for each wine sample"
+    description="Unique identifier for each wine sample",
+    value_type=ValueType.INT64
 )
 
 wine_source = FileSource(
-    path="feature_store/data/wine_features.parquet",
+    path=DATA_PATH,
     timestamp_field="event_timestamp"
 )
 
