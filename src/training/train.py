@@ -2,8 +2,8 @@ import mlflow
 import mlflow.sklearn
 import numpy as np
 import pandas as pd
+from feast import FeatureStore
 from mlflow.models import infer_signature
-from sklearn.datasets import load_wine
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
@@ -14,13 +14,54 @@ mlflow.set_tracking_uri("http://localhost:5000")
 # create or connect to an experiment
 mlflow.set_experiment("wine-classifier")
 
-def train(n_estimators=100, max_depth=5):
-    # load data
-    data = load_wine()
-    X = pd.DataFrame(data.data, columns=data.feature_names)
-    X.columns = X.columns.str.replace("/", "_").str.replace(" ", "_")
-    y = data.target
+def get_features_from_store():
+    # connect to Feast feature store (make sure it's running locally)
+    store = FeatureStore(repo_path="feature_store")
 
+    # create an entity dataframe with wine IDs and timestamps
+    entity_df = pd.DataFrame({
+        "wine_id": list(range(178)),
+        "event_timestamp": pd.Timestamp.now(tz="UTC"),
+    })
+
+    # retrieve features for these entities
+    feature_vector = store.get_historical_features(
+        entity_df=entity_df,
+        features=[
+            "wine_features:alcohol",
+            "wine_features:malic_acid",
+            "wine_features:ash",
+            "wine_features:alcalinity_of_ash",
+            "wine_features:magnesium",
+            "wine_features:total_phenols",
+            "wine_features:flavanoids",
+            "wine_features:nonflavanoid_phenols",
+            "wine_features:proanthocyanins",
+            "wine_features:color_intensity",
+            "wine_features:hue",
+            "wine_features:od280_od315_of_diluted_wines",
+            "wine_features:proline",
+            "wine_features:target",
+        ]
+    ).to_df()
+
+    print("Features retrieved from Feast:")
+    print(feature_vector.head())
+
+    return feature_vector
+
+def train(n_estimators=100, max_depth=5):
+    print("Retrieving features from Feast...")
+    features_df = get_features_from_store()
+
+    feature_cols = [col for col in features_df.columns 
+                    if col not in ["wine_id", "event_timestamp", "target"]
+                ]
+    
+    X = features_df[feature_cols]
+    y = features_df["target"]
+
+    # add noise to make it more interesting
     X = X + np.random.normal(0, 1.5, X.shape)
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -32,6 +73,7 @@ def train(n_estimators=100, max_depth=5):
         mlflow.log_param("n_estimators", n_estimators)
         mlflow.log_param("max_depth", max_depth)
         mlflow.log_param("model_type", "RandomForestClassifier")
+        mlflow.log_param("feature_source", "feast_feature_store")
 
         # train model
         model = RandomForestClassifier(
