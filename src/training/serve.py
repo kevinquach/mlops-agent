@@ -1,10 +1,11 @@
+from contextlib import asynccontextmanager
+
 import mlflow
 import mlflow.sklearn
 import pandas as pd
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import uvicorn
-from contextlib import asynccontextmanager
 
 # point to your local MLflow server
 mlflow.set_tracking_uri("http://localhost:5000")

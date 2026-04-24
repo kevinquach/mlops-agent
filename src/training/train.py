@@ -1,12 +1,12 @@
 import mlflow
 import mlflow.sklearn
-from mlflow.models import infer_signature
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
-from sklearn.datasets import load_wine
-import pandas as pd
 import numpy as np
+import pandas as pd
+from mlflow.models import infer_signature
+from sklearn.datasets import load_wine
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+from sklearn.model_selection import train_test_split
 
 # point to your local MLflow server
 mlflow.set_tracking_uri("http://localhost:5000")
@@ -67,7 +67,7 @@ def train(n_estimators=100, max_depth=5):
         print(f"F1 Score:  {f1:.4f}")
         print(f"Precision: {precision:.4f}")
         print(f"Recall:    {recall:.4f}")
-        print(f"\nRun logged to MLflow: http://localhost:5000")
+        print("\nRun logged to MLflow: http://localhost:5000")
 
         return accuracy
 
