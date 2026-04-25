@@ -5,7 +5,15 @@ import mlflow.sklearn
 import pandas as pd
 import uvicorn
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from feast import FeatureStore
+
+from src.schemas import (
+    FEATURE_COLS,
+    FeatureLookupResponse,
+    PredictionResponse,
+    WineClass,
+    WineFeatures,
+)
 
 # point to your local MLflow server
 mlflow.set_tracking_uri("http://localhost:5000")
@@ -24,28 +32,17 @@ def load_model():
         print(f"No staging model found, loading latest version: {e}")
         model = mlflow.sklearn.load_model("models:/wine-classifier/1")
 
-# input schema — matches wine dataset feature names
-class WineFeatures(BaseModel):
-    alcohol: float
-    malic_acid: float
-    ash: float
-    alcalinity_of_ash: float
-    magnesium: float
-    total_phenols: float
-    flavanoids: float
-    nonflavanoid_phenols: float
-    proanthocyanins: float
-    color_intensity: float
-    hue: float
-    od280_od315_of_diluted_wines: float
-    proline: float
+def get_online_features(wine_id: int) -> pd.DataFrame:
+    # connect to Feast feature store (make sure it's running locally)
+    store = FeatureStore(repo_path="feature_store")
+    feature_vector = store.get_online_features(
+        features=[f"wine_features:{col}" for col in FEATURE_COLS],
+        entity_rows=[{"wine_id": wine_id}]
+    ).to_df()       
 
-class PredictionResponse(BaseModel):
-    prediction: int
-    wine_class: str
-    model_version: str
+    print(feature_vector.columns.tolist())
 
-WINE_CLASSES = {0: "Class 0 (Cultivar 1)", 1: "Class 1 (Cultivar 2)", 2: "Class 2 (Cultivar 3)"}
+    return feature_vector[FEATURE_COLS]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -57,6 +54,28 @@ app = FastAPI(title="Wine Classifier API", version="1.0.0", lifespan=lifespan)
 @app.get("/health")
 def health():
     return {"status": "healthy", "model_loaded": model is not None}
+
+@app.get("/predict-by-id/{wine_id}", response_model=FeatureLookupResponse)
+def predict_by_id(wine_id: int):
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    if wine_id < 0 or wine_id > 177:
+        raise HTTPException(status_code=400, detail="wine_id must be between 0 and 177")
+
+    features_df = get_online_features(wine_id)
+
+    if features_df.empty:
+        raise HTTPException(status_code=404, detail=f"No features found for wine_id {wine_id}")
+
+    prediction = int(model.predict(features_df)[0])
+
+    return FeatureLookupResponse(
+        wine_id=wine_id,
+        prediction=prediction,
+        wine_class=WineClass.from_prediction(prediction),
+        feature_source="feast_online_store"
+    )
 
 @app.post("/predict", response_model=PredictionResponse)
 def predict(features: WineFeatures):
@@ -72,7 +91,7 @@ def predict(features: WineFeatures):
 
     return PredictionResponse(
         prediction=prediction,
-        wine_class=WINE_CLASSES[prediction],
+        wine_class=WineClass.from_prediction(prediction),
         model_version="staging"
     )
 

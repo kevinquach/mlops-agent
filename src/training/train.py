@@ -8,6 +8,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
 
+from src.schemas import FEATURE_COLS
+
 # point to your local MLflow server
 mlflow.set_tracking_uri("http://localhost:5000")
 
@@ -27,22 +29,7 @@ def get_features_from_store():
     # retrieve features for these entities
     feature_vector = store.get_historical_features(
         entity_df=entity_df,
-        features=[
-            "wine_features:alcohol",
-            "wine_features:malic_acid",
-            "wine_features:ash",
-            "wine_features:alcalinity_of_ash",
-            "wine_features:magnesium",
-            "wine_features:total_phenols",
-            "wine_features:flavanoids",
-            "wine_features:nonflavanoid_phenols",
-            "wine_features:proanthocyanins",
-            "wine_features:color_intensity",
-            "wine_features:hue",
-            "wine_features:od280_od315_of_diluted_wines",
-            "wine_features:proline",
-            "wine_features:target",
-        ]
+        features=[f"wine_features:{col}" for col in FEATURE_COLS + ["target"]]
     ).to_df()
 
     print("Features retrieved from Feast:")
@@ -53,12 +40,8 @@ def get_features_from_store():
 def train(n_estimators=100, max_depth=5):
     print("Retrieving features from Feast...")
     features_df = get_features_from_store()
-
-    feature_cols = [col for col in features_df.columns 
-                    if col not in ["wine_id", "event_timestamp", "target"]
-                ]
     
-    X = features_df[feature_cols]
+    X = features_df[FEATURE_COLS]
     y = features_df["target"]
 
     # add noise to make it more interesting
